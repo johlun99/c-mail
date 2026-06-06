@@ -1,2 +1,26 @@
+# Local / agent files
 /CLAUDE.md
 /design_handoff_cmail
+
+# Environment & secrets
+.env
+.env.*
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.test
+*.out
+vendor/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Wails build output
+build/bin/
