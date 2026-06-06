@@ -53,11 +53,21 @@ Increment 2 — overlays + tweak UI ✅
 - [ ] Live visual check via `wails dev` (needs webkit) against screenshots
 
 ## Phase 4 — Gmail integration  *(feat/gmail)*
-- [ ] OAuth2 (installed-app/PKCE), opens system browser, captures redirect
-- [ ] Token storage in OS keychain (go-keyring)
-- [ ] Gmail API: messages, threads, labels, drafts (never auto-send)
-- [ ] Local SQLite cache + background sync
-- [ ] Account flow in settings (disconnected → connecting → connected)
+Increment 4a — backend (auth + fetch + encrypted cache) ✅
+- [x] OAuth2 desktop loopback flow (PKCE) — `internal/gmail`
+- [x] Token storage in OS keyring (`internal/secrets`, go-keyring)
+- [x] Gmail API: list/get inbox messages → map to domain model; create draft; send (user-approval only)
+- [x] Encrypted local cache (`internal/cache`, AES-256-GCM, key in keyring, pure-Go SQLite)
+- [x] `MailService` store selection (mock ↔ Gmail) + bindings (Connect/Disconnect/Configured/Connected/Refresh)
+- [x] Credentials via env (`GMAIL_CLIENT_ID`/`GMAIL_CLIENT_SECRET`); coarse label→category stopgap
+- [x] Unit tests: keyring (mock), cache round-trip + encryption + wrong-key, message mapping
+
+Increment 4b — wiring + sync (next)
+- [ ] Wire settings "anslut/koppla från" to real `ConnectGmail`/`DisconnectGmail`
+- [ ] Restore connection on startup (persist connected account, reconnect from keyring)
+- [ ] Approve → real send; auto-draft → real `CreateDraft`
+- [ ] Background sync (periodic `RefreshMails`) + frontend refresh signal
+- [ ] End-to-end test with a real Google OAuth client (user-provided credentials)
 
 ## Phase 5 — Local AI agent flow (Ollama)  *(feat/agent)*
 - [ ] Pluggable `Classifier` interface in Go
