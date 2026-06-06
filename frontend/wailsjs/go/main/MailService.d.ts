@@ -3,9 +3,13 @@
 import {mail} from '../models';
 import {context} from '../models';
 
+export function AIAvailable():Promise<boolean>;
+
 export function ConnectGmail():Promise<mail.Account>;
 
 export function DisconnectGmail():Promise<void>;
+
+export function GenerateDraft(arg1:string):Promise<mail.Draft>;
 
 export function GetAccounts():Promise<Array<mail.Account>>;
 

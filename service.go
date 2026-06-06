@@ -8,11 +8,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"cmail/internal/agent"
 	"cmail/internal/cache"
 	"cmail/internal/gmail"
 	"cmail/internal/mail"
@@ -26,7 +28,8 @@ const syncInterval = 2 * time.Minute
 // Gmail account is connected, after which it serves live Gmail data backed by an
 // encrypted local cache. The same surface is used in both modes.
 type MailService struct {
-	mock mail.Store
+	mock       mail.Store
+	classifier agent.Classifier
 
 	mu      sync.Mutex
 	ctx     context.Context
@@ -36,9 +39,64 @@ type MailService struct {
 	mails   []mail.Mail
 }
 
-// NewMailService creates a MailService that starts in mock mode.
+// NewMailService creates a MailService that starts in mock mode, with a local
+// Ollama classifier for the agent flow.
 func NewMailService() *MailService {
-	return &MailService{mock: mail.NewMockStore()}
+	return &MailService{mock: mail.NewMockStore(), classifier: agent.NewOllama()}
+}
+
+// AIAvailable reports whether the local AI backend (Ollama) is reachable.
+func (s *MailService) AIAvailable() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return s.classifier.Available(ctx)
+}
+
+// GenerateDraft asks the local agent to draft a reply for a mail.
+func (s *MailService) GenerateDraft(mailID string) (mail.Draft, error) {
+	m, ok := s.findMail(mailID)
+	if !ok {
+		return mail.Draft{}, errors.New("mail saknas")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	return s.classifier.DraftReply(ctx, agent.MailInput{
+		From:    m.From,
+		Subject: m.Subject,
+		Body:    strings.Join(m.Body, "\n\n"),
+	}, "professionell · varm")
+}
+
+func (s *MailService) findMail(id string) (mail.Mail, bool) {
+	for _, m := range s.GetMails() {
+		if m.ID == id {
+			return m, true
+		}
+	}
+	return mail.Mail{}, false
+}
+
+// classify runs the local agent over fetched mail (best-effort): if the backend
+// is unavailable it leaves the label-based category in place.
+func (s *MailService) classify(ctx context.Context, mails []mail.Mail) []mail.Mail {
+	if !s.classifier.Available(ctx) {
+		return mails
+	}
+	cats := s.mock.Categories()
+	for i := range mails {
+		c, err := s.classifier.Categorize(ctx, agent.MailInput{
+			From:    mails[i].From,
+			Subject: mails[i].Subject,
+			Body:    strings.Join(mails[i].Body, "\n\n"),
+		}, cats)
+		if err != nil {
+			continue
+		}
+		mails[i].Cat = c.Category
+		mails[i].Confidence = c.Confidence
+		mails[i].Agent = mail.AgentAnalysis{Summary: c.Summary, Facts: c.Facts, Tasks: c.Tasks}
+	}
+	return mails
 }
 
 // Start records the Wails context, restores a previous session (if any) and
@@ -221,10 +279,13 @@ func (s *MailService) RefreshMails() error {
 	if client == nil {
 		return nil
 	}
-	mails, err := client.FetchMails(context.Background(), 50)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	mails, err := client.FetchMails(ctx, 50)
 	if err != nil {
 		return err
 	}
+	mails = s.classify(ctx, mails)
 	if c != nil {
 		_ = c.PutMails(mails)
 	}

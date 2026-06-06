@@ -70,13 +70,15 @@ Increment 4b — wiring + sync ✅ (live-test pending creds)
 - [ ] **End-to-end test with a real Google OAuth client (needs user `GMAIL_CLIENT_ID/SECRET`)**
 - Note: agent auto-drafting (`CreateDraft`) is wired in the client but triggered by the AI layer in Phase 5.
 
-## Phase 5 — Local AI agent flow (Ollama)  *(feat/agent)*
-- [ ] Pluggable `Classifier` interface in Go
-- [ ] Ollama implementation (localhost:11434); model choice per RAM
-- [ ] Detect if Ollama is running; guide setup if not
-- [ ] Categorization writes AgentAnalysis + optional auto-draft per category
-- [ ] Never-send locked in settings
-- [ ] Verify no mail data leaves the machine
+## Phase 5 — Local AI agent flow (Ollama)  *(feat/agent)*  ✅ (live-test pending Ollama)
+- [x] Pluggable `Classifier` interface in `internal/agent`
+- [x] Ollama implementation (`/api/chat`, JSON format); config via `OLLAMA_HOST`/`OLLAMA_MODEL` (default `qwen2.5:3b`)
+- [x] Detect if Ollama is running (`AIAvailable`); settings shows status + setup hint when not
+- [x] Categorization fills `AgentAnalysis` + category on Gmail refresh (best-effort, falls back to label heuristic)
+- [x] `GenerateDraft` wired to `r`/regenerate + "generera om"; never-send preserved (drafting only)
+- [x] Tests: httptest-mocked Ollama (available/categorize/fallback/draft) + service tests with a fake classifier
+- [ ] **Live verification with Ollama installed (`ollama pull qwen2.5:3b`) on the 6 GB machine**
+- Note: per-category auto-draft toggle is UI-only for now; auto-drafting on classify is a later refinement.
 
 ---
 

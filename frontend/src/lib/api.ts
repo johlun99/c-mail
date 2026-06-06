@@ -11,6 +11,8 @@ import {
   ConnectGmail,
   DisconnectGmail,
   SendReply,
+  GenerateDraft,
+  AIAvailable,
 } from '../../wailsjs/go/main/MailService';
 import { EventsOn } from '../../wailsjs/runtime';
 
@@ -56,6 +58,18 @@ export function disconnectGmail(): Promise<void> {
 /** Sends a reply — only ever called from an explicit user approval. */
 export function sendReply(to: string, subject: string, body: string): Promise<void> {
   return wailsReady() ? SendReply(to, subject, body) : Promise.resolve();
+}
+
+/** Asks the local agent to draft a reply for a mail. */
+export function generateDraft(mailID: string): Promise<mail.Draft> {
+  return wailsReady()
+    ? GenerateDraft(mailID)
+    : Promise.reject(new Error('AI kräver desktop-appen'));
+}
+
+/** Reports whether the local AI backend (Ollama) is reachable. */
+export function aiAvailable(): Promise<boolean> {
+  return wailsReady() ? AIAvailable() : Promise.resolve(false);
 }
 
 /** Subscribes to background mail updates; returns an unsubscribe function. */

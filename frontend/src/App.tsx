@@ -8,6 +8,8 @@ import {
   connectGmail,
   disconnectGmail,
   sendReply,
+  generateDraft,
+  aiAvailable,
   onMailsUpdated,
   isApp,
 } from './lib/api';
@@ -51,22 +53,25 @@ function App() {
   const [editValue, setEditValue] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [aiOn, setAiOn] = useState(false);
 
   const gPending = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Load all data from the Go MailService.
   const loadData = useCallback(async () => {
-    const [m, c, a, r] = await Promise.all([
+    const [m, c, a, r, ai] = await Promise.all([
       fetchMails(),
       fetchCategories(),
       fetchAccounts(),
       fetchRules(),
+      aiAvailable(),
     ]);
     setAllMails(m);
     setCats(c);
     setAccounts(a);
     setRules(r);
+    setAiOn(ai);
     if (m.length) setSelId((cur) => cur || m[0].id);
   }, []);
 
@@ -206,10 +211,26 @@ function App() {
     }
   };
   const regenerate = () => {
-    if (sel?.draft) {
-      setEditing(false);
-      flash('agenten genererade ett nytt utkast', 'agent >');
+    if (!sel) return;
+    const m = sel;
+    if (!isApp() || !aiOn) {
+      flash('lokal AI ej igång — starta Ollama', '⚠');
+      return;
     }
+    flash('agenten skriver ett utkast…', 'agent >');
+    void generateDraft(m.id)
+      .then((d) => {
+        setAllMails((ms) =>
+          ms.map((x) => (x.id === m.id ? mail.Mail.createFrom({ ...x, draft: d }) : x)),
+        );
+        setEditing(false);
+        setDiscarded((s) => {
+          const n = new Set(s);
+          n.delete(m.id);
+          return n;
+        });
+      })
+      .catch(() => flash('kunde inte generera utkast', '⚠'));
   };
   const discardDraft = () => {
     if (sel?.draft) {
@@ -220,7 +241,7 @@ function App() {
   const openDraft = () => {
     if (!sel) return;
     if (sel.draft && !discarded.has(sel.id) && !sent.has(sel.id)) setEditing(true);
-    else flash('inget utkast — agenten skapar ett…', 'agent >');
+    else regenerate();
   };
 
   // ── command palette commands ──
@@ -566,6 +587,7 @@ function App() {
           cats={cats}
           accounts={accounts}
           connecting={connecting}
+          aiAvailable={aiOn}
           onConnect={onConnect}
           onDisconnect={onDisconnect}
           onToggleRule={toggleRule}
