@@ -30,6 +30,7 @@ interface SettingsProps {
   cats: mail.Category[];
   accounts: mail.Account[];
   connecting: boolean;
+  aiAvailable: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
   onToggleRule: (i: number) => void;
@@ -47,6 +48,7 @@ export function Settings({
   cats,
   accounts,
   connecting,
+  aiAvailable,
   onConnect,
   onDisconnect,
   onToggleRule,
@@ -233,7 +235,14 @@ export function Settings({
                 setTweak={setTweak}
               />
             )}
-            {key === 'agent' && <AgentPane rules={rules} foc={foc} onToggle={onToggleRule} />}
+            {key === 'agent' && (
+              <AgentPane
+                rules={rules}
+                foc={foc}
+                aiAvailable={aiAvailable}
+                onToggle={onToggleRule}
+              />
+            )}
             {key === 'kategorier' && (
               <KategoriPane cats={cats} foc={foc} catAuto={catAuto} setCatAuto={setCatAuto} />
             )}
@@ -442,10 +451,12 @@ function UtseendePane({
 function AgentPane({
   rules,
   foc,
+  aiAvailable,
   onToggle,
 }: {
   rules: mail.Rule[];
   foc: number;
+  aiAvailable: boolean;
   onToggle: (i: number) => void;
 }) {
   return (
@@ -454,6 +465,21 @@ function AgentPane({
       <div className="pane-sub">
         Vad agenten får göra på egen hand. Allt utom dessa kräver din bekräftelse.
       </div>
+      <div className="ctrl-row" style={{ borderBottom: 'none', paddingTop: 0 }}>
+        <div className="lbl">
+          Lokal AI (Ollama)
+          <small>kategorisering & utkast körs på din dator</small>
+        </div>
+        <span className={'status-badge ' + (aiAvailable ? 'on' : 'off')}>
+          {aiAvailable ? 'tillgänglig' : 'ej igång'}
+        </span>
+      </div>
+      {!aiAvailable && (
+        <div className="pane-sub" style={{ marginTop: 8 }}>
+          Starta Ollama och hämta en modell (t.ex. <code>ollama pull qwen2.5:3b</code>) för att slå
+          på lokal kategorisering och utkast.
+        </div>
+      )}
       {rules.map((r, i) => (
         <div
           key={i}
