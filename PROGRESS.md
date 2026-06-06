@@ -35,13 +35,22 @@ every PR/phase. Full rationale lives in the approved plan.
 - [x] Go tests on the store + frontend test guarding the TS↔Go contract
 - [ ] Live fetch in UI deferred to Phase 3 (needs `wails dev` + webkit)
 
-## Phase 3 — UI matching the design  *(feat/ui, maybe split)*
-- [ ] Port design tokens (OKLCH ramp, `--bgl`, ambient depth)
-- [ ] Components: topbar, rail, message list, reading pane (agent + draft diff)
-- [ ] Overlays: command palette, settings, help/keymap
-- [ ] State model + vim-like keymap
-- [ ] Keyboard + mouse parity; no `scrollIntoView`; platform-aware Mod key
-- [ ] Swedish copy; tabular numerals; preserve depth (not flat dark)
+## Phase 3 — UI matching the design  *(feat/ui, split into increments)*
+Increment 1 — inbox shell ✅
+- [x] Port design tokens to `style.css` (OKLCH ramp, `--bgl`, ambient depth, scanlines)
+- [x] `useTweaks` hook applies accent/font/density/layout/`--bgl` to `:root` (persisted)
+- [x] Components: TopBar, Rail, MessageList (+Row, day groups, manual scroll), ReadingPane (agent block + draft diff + sent banner), StatusBar
+- [x] State model + vim keymap (j/k/g/G/1-6/Enter/l/r/e/a/d/c/// /Esc, Mod+Enter)
+- [x] Wired to mock data via `MailService` bindings (graceful empty outside Wails)
+- [x] Keyboard + mouse parity for built surfaces; no `scrollIntoView`; platform-aware Mod key
+- [x] Swedish copy; tabular numerals; depth preserved; frontend test for shell
+
+Increment 2 — overlays + tweak UI (next)
+- [ ] Command palette (`Mod+K`) with grouped commands + filtering
+- [ ] Settings overlay (accounts, appearance, agent rules, categories, privacy)
+- [ ] Help/keymap overlay (`?`)
+- [ ] Wire accent/density/font/columns/bgl controls to `setTweak`
+- [ ] Live visual check via `wails dev` (needs webkit) against screenshots
 
 ## Phase 4 — Gmail integration  *(feat/gmail)*
 - [ ] OAuth2 (installed-app/PKCE), opens system browser, captures redirect
