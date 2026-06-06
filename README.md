@@ -41,11 +41,11 @@ cd frontend && npm install && cd ..   # frontend deps
 make install-hooks                    # enable pre-commit lint+test hook
 ```
 
-Everyday commands:
+Everyday commands (use `make` — on Linux it adds the `webkit2gtk-4.1` build tag for you):
 
 ```bash
-wails dev      # run the app in development with hot reload
-wails build    # produce a distributable binary
+make dev       # run the app in development with hot reload
+make build     # produce a distributable binary
 make lint      # run all linters (Go + frontend)
 make test      # run all tests (Go + frontend)
 make fmt       # auto-format Go + frontend
