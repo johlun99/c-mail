@@ -57,6 +57,8 @@ make fmt       # auto-format Go + frontend
   branches** and lands via **pull request** — never commit directly to `master`.
 - **Commits:** [Conventional Commits](https://www.conventionalcommits.org/)
   (`type(scope): message`), kept small and atomic.
+- **Tests:** every feature or bugfix ships with unit tests (Go `*_test.go`,
+  frontend Vitest), and existing tests are maintained as behaviour changes.
 - **Quality gates:** linters and the test suite run **before every commit**
   (pre-commit hook) and again in **GitHub Actions on every PR**. Both must pass.
 
