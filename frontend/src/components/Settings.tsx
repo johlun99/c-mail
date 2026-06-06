@@ -23,22 +23,15 @@ const ACC = [
   { v: '#e8995c', name: 'amber' },
 ];
 const TONES = ['professionell · varm', 'kort · direkt', 'formell', 'vänlig · informell'];
-const ADD_EMAILS = ['team@nordveda.se', 'johan@gmail.com', 'support@nordveda.se'];
 const clampBg = (v: number) => Math.max(0.12, Math.min(0.22, Math.round(v * 1000) / 1000));
-
-type AcctStatus = 'connected' | 'connecting' | 'disconnected';
-interface UIAccount {
-  id: number;
-  email: string;
-  provider: string;
-  status: AcctStatus;
-  last: string;
-}
 
 interface SettingsProps {
   rules: mail.Rule[];
   cats: mail.Category[];
   accounts: mail.Account[];
+  connecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
   onToggleRule: (i: number) => void;
   onClose: () => void;
   accent: string;
@@ -52,7 +45,10 @@ interface SettingsProps {
 export function Settings({
   rules,
   cats,
-  accounts: seed,
+  accounts,
+  connecting,
+  onConnect,
+  onDisconnect,
   onToggleRule,
   onClose,
   accent,
@@ -65,25 +61,6 @@ export function Settings({
   const [section, setSection] = useState(0);
   const [focus, setFocus] = useState<'nav' | 'content'>('nav');
   const [itemIdx, setItemIdx] = useState(0);
-  const [accounts, setAccounts] = useState<UIAccount[]>(() =>
-    seed.length
-      ? seed.map((a, i) => ({
-          id: i + 1,
-          email: a.email,
-          provider: a.provider,
-          status: a.status as AcctStatus,
-          last: 'nyss',
-        }))
-      : [
-          {
-            id: 1,
-            email: 'johan@nordveda.se',
-            provider: 'Gmail',
-            status: 'connected',
-            last: 'nyss',
-          },
-        ],
-  );
   const [toneIdx, setToneIdx] = useState(0);
   const [catAuto, setCatAuto] = useState<Record<string, boolean>>(() => {
     const o: Record<string, boolean> = {};
@@ -91,28 +68,6 @@ export function Settings({
     return o;
   });
   const [priv, setPriv] = useState({ thread: true, cloud: false, localdraft: true, retain: false });
-
-  const setAcct = (id: number, patch: Partial<UIAccount>) =>
-    setAccounts((as) => as.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-  const connectLater = (id: number) =>
-    setTimeout(() => setAcct(id, { status: 'connected', last: 'nyss' }), 1100);
-  const toggleAccount = (id: number) => {
-    const a = accounts.find((x) => x.id === id);
-    if (!a) return;
-    if (a.status === 'connected') setAcct(id, { status: 'disconnected' });
-    else if (a.status === 'disconnected') {
-      setAcct(id, { status: 'connecting' });
-      connectLater(id);
-    } else setAcct(id, { status: 'disconnected' });
-  };
-  const addAccount = () => {
-    const used = accounts.map((a) => a.email);
-    const email =
-      ADD_EMAILS.find((e) => !used.includes(e)) ?? `konto${accounts.length}@nordveda.se`;
-    const id = Date.now();
-    setAccounts((as) => [...as, { id, email, provider: 'Gmail', status: 'connecting', last: '' }]);
-    connectLater(id);
-  };
 
   const cycle = <T,>(arr: T[], cur: T, set: (v: T) => void) =>
     set(arr[(arr.indexOf(cur) + 1) % arr.length]);
@@ -134,7 +89,7 @@ export function Settings({
   const items: { run: () => void }[] = (() => {
     switch (SECTIONS[section].key) {
       case 'konton':
-        return [...accounts.map((a) => ({ run: () => toggleAccount(a.id) })), { run: addAccount }];
+        return [...accounts.map(() => ({ run: onDisconnect })), { run: onConnect }];
       case 'utseende':
         return [
           { run: cycleAccent },
@@ -262,8 +217,9 @@ export function Settings({
               <KontonPane
                 accounts={accounts}
                 foc={foc}
-                toggleAccount={toggleAccount}
-                addAccount={addAccount}
+                connecting={connecting}
+                onConnect={onConnect}
+                onDisconnect={onDisconnect}
               />
             )}
             {key === 'utseende' && (
@@ -324,33 +280,51 @@ function Seg<T extends string>({ opts, val, onSet }: { opts: T[]; val: T; onSet:
 function KontonPane({
   accounts,
   foc,
-  toggleAccount,
-  addAccount,
+  connecting,
+  onConnect,
+  onDisconnect,
 }: {
-  accounts: UIAccount[];
+  accounts: mail.Account[];
   foc: number;
-  toggleAccount: (id: number) => void;
-  addAccount: () => void;
+  connecting: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
 }) {
   return (
     <div>
       <div className="pane-h">Konton</div>
       <div className="pane-sub">
-        Koppla dina e-postkonton. Agenten läser och kategoriserar inkommande mail — men skickar
-        aldrig något utan ditt godkännande.
+        Koppla din Gmail. Agenten läser och kategoriserar inkommande mail — men skickar aldrig något
+        utan ditt godkännande.
       </div>
       {accounts.map((a, i) => (
-        <AccountCard key={a.id} a={a} foc={foc === i} onToggle={() => toggleAccount(a.id)} />
+        <AccountCard key={a.email} a={a} foc={foc === i} onDisconnect={onDisconnect} />
       ))}
-      <div className={'addrow' + (foc === accounts.length ? ' foc' : '')} onClick={addAccount}>
-        <span className="plus">+</span> Lägg till konto
-        <span className="muted">· Gmail · Outlook · IMAP</span>
+      {accounts.length === 0 && (
+        <div className="pane-sub" style={{ marginTop: 0 }}>
+          Inget konto anslutet än.
+        </div>
+      )}
+      <div
+        className={'addrow' + (foc === accounts.length ? ' foc' : '')}
+        onClick={connecting ? undefined : onConnect}
+      >
+        <span className="plus">+</span> {connecting ? 'ansluter…' : 'Anslut Gmail-konto'}
+        <span className="muted">· öppnar Google-inloggning</span>
       </div>
     </div>
   );
 }
 
-function AccountCard({ a, foc, onToggle }: { a: UIAccount; foc: boolean; onToggle: () => void }) {
+function AccountCard({
+  a,
+  foc,
+  onDisconnect,
+}: {
+  a: mail.Account;
+  foc: boolean;
+  onDisconnect: () => void;
+}) {
   const st = a.status;
   const badge: [string, string] =
     st === 'connected'
@@ -367,7 +341,7 @@ function AccountCard({ a, foc, onToggle }: { a: UIAccount; foc: boolean; onToggl
           <div className="meta">
             {a.provider}
             {st === 'connected'
-              ? ` · synkad ${a.last}`
+              ? ` · ${a.syncedAt}`
               : st === 'connecting'
                 ? ' · autentiserar'
                 : ' · ej kopplad'}
@@ -375,24 +349,19 @@ function AccountCard({ a, foc, onToggle }: { a: UIAccount; foc: boolean; onToggl
         </div>
         <span className={'status-badge ' + badge[0]}>{badge[1]}</span>
       </div>
-      {st === 'connected' && (
+      {a.scopes.length > 0 && (
         <div className="scopes">
-          <div className="scope-line">
-            <span className="ck">✓</span> läser inkommande e-post
-          </div>
-          <div className="scope-line">
-            <span className="ck">✓</span> skapar utkast åt dig (skickar aldrig automatiskt)
-          </div>
-          <div className="scope-line">
-            <span className="ck">✓</span> hanterar etiketter & kategorier
-          </div>
+          {a.scopes.map((s) => (
+            <div className="scope-line" key={s}>
+              <span className="ck">✓</span> {s}
+            </div>
+          ))}
         </div>
       )}
       <div className="acct-foot">
-        <button className="btn" onClick={onToggle}>
-          {st === 'connected' ? 'koppla från' : st === 'connecting' ? 'avbryt' : 'anslut'}
+        <button className="btn" onClick={onDisconnect}>
+          koppla från
         </button>
-        {st === 'connected' && <button className="btn">hantera behörigheter</button>}
       </div>
     </div>
   );

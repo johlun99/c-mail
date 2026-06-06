@@ -62,12 +62,13 @@ Increment 4a — backend (auth + fetch + encrypted cache) ✅
 - [x] Credentials via env (`GMAIL_CLIENT_ID`/`GMAIL_CLIENT_SECRET`); coarse label→category stopgap
 - [x] Unit tests: keyring (mock), cache round-trip + encryption + wrong-key, message mapping
 
-Increment 4b — wiring + sync (next)
-- [ ] Wire settings "anslut/koppla från" to real `ConnectGmail`/`DisconnectGmail`
-- [ ] Restore connection on startup (persist connected account, reconnect from keyring)
-- [ ] Approve → real send; auto-draft → real `CreateDraft`
-- [ ] Background sync (periodic `RefreshMails`) + frontend refresh signal
-- [ ] End-to-end test with a real Google OAuth client (user-provided credentials)
+Increment 4b — wiring + sync ✅ (live-test pending creds)
+- [x] Settings "anslut/koppla från" wired to real `ConnectGmail`/`DisconnectGmail` (props-driven accounts, connecting state)
+- [x] Restore connection on startup (`state.json` + reconnect from keyring) via `MailService.Start`
+- [x] Approve → real `SendReply` when connected (mock/demo keeps local behaviour); never-send preserved
+- [x] Background sync (periodic `RefreshMails`) emitting `mails:updated`; frontend reloads on the event
+- [ ] **End-to-end test with a real Google OAuth client (needs user `GMAIL_CLIENT_ID/SECRET`)**
+- Note: agent auto-drafting (`CreateDraft`) is wired in the client but triggered by the AI layer in Phase 5.
 
 ## Phase 5 — Local AI agent flow (Ollama)  *(feat/agent)*
 - [ ] Pluggable `Classifier` interface in Go

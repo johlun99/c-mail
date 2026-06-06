@@ -6,7 +6,7 @@ import (
 )
 
 func TestGreet(t *testing.T) {
-	app := NewApp()
+	app := NewApp(nil)
 	got := app.Greet("Johan")
 	if !strings.Contains(got, "Johan") {
 		t.Errorf("Greet() = %q, want it to contain the name", got)

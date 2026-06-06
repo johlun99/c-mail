@@ -41,3 +41,11 @@ export function GmailConnected() {
 export function RefreshMails() {
   return window['go']['main']['MailService']['RefreshMails']();
 }
+
+export function SendReply(arg1, arg2, arg3) {
+  return window['go']['main']['MailService']['SendReply'](arg1, arg2, arg3);
+}
+
+export function Start(arg1) {
+  return window['go']['main']['MailService']['Start'](arg1);
+}

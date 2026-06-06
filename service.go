@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,11 +11,16 @@ import (
 	"sync"
 	"time"
 
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"cmail/internal/cache"
 	"cmail/internal/gmail"
 	"cmail/internal/mail"
 	"cmail/internal/secrets"
 )
+
+// syncInterval is how often connected mail is refreshed in the background.
+const syncInterval = 2 * time.Minute
 
 // MailService is bound to the frontend by Wails. It serves mock data until a
 // Gmail account is connected, after which it serves live Gmail data backed by an
@@ -22,6 +29,7 @@ type MailService struct {
 	mock mail.Store
 
 	mu      sync.Mutex
+	ctx     context.Context
 	client  *gmail.Client
 	cache   *cache.Cache
 	account string
@@ -31,6 +39,64 @@ type MailService struct {
 // NewMailService creates a MailService that starts in mock mode.
 func NewMailService() *MailService {
 	return &MailService{mock: mail.NewMockStore()}
+}
+
+// Start records the Wails context, restores a previous session (if any) and
+// begins background sync. Called from App.startup.
+func (s *MailService) Start(ctx context.Context) {
+	s.mu.Lock()
+	s.ctx = ctx
+	s.mu.Unlock()
+	go s.restore()
+	go s.syncLoop(ctx)
+}
+
+// restore reconnects to the last-connected account using the keyring-stored
+// refresh token, so the user does not re-authenticate on every launch.
+func (s *MailService) restore() {
+	email, err := loadState()
+	if err != nil || email == "" || !gmail.Configured() {
+		return
+	}
+	tok, err := secrets.LoadRefreshToken(email)
+	if err != nil {
+		return
+	}
+	client, err := gmail.NewClient(context.Background(), tok)
+	if err != nil {
+		return
+	}
+	if err := s.activate(email, client); err != nil {
+		return
+	}
+	s.emit("mails:updated")
+}
+
+func (s *MailService) syncLoop(ctx context.Context) {
+	t := time.NewTicker(syncInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if !s.GmailConnected() {
+				continue
+			}
+			if err := s.RefreshMails(); err == nil {
+				s.emit("mails:updated")
+			}
+		}
+	}
+}
+
+func (s *MailService) emit(event string) {
+	s.mu.Lock()
+	ctx := s.ctx
+	s.mu.Unlock()
+	if ctx != nil {
+		wruntime.EventsEmit(ctx, event)
+	}
 }
 
 // GetMails returns live Gmail mails when connected, otherwise mock mails.
@@ -110,6 +176,8 @@ func (s *MailService) ConnectGmail() (mail.Account, error) {
 	if err := s.activate(email, client); err != nil {
 		return mail.Account{}, err
 	}
+	_ = saveState(email)
+	s.emit("mails:updated")
 	return s.GetAccounts()[0], nil
 }
 
@@ -122,10 +190,26 @@ func (s *MailService) DisconnectGmail() error {
 	}
 	s.client, s.cache, s.account, s.mails = nil, nil, "", nil
 	s.mu.Unlock()
+	_ = saveState("")
+	s.emit("mails:updated")
 	if email != "" {
 		return secrets.DeleteRefreshToken(email)
 	}
 	return nil
+}
+
+// SendReply sends a reply. It is only ever invoked from an explicit user-approval
+// action in the UI — never autonomously (the never-send guarantee).
+func (s *MailService) SendReply(to, subject, body string) error {
+	s.mu.Lock()
+	client := s.client
+	s.mu.Unlock()
+	if client == nil {
+		return errors.New("inget anslutet konto")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return client.Send(ctx, to, subject, body)
 }
 
 // RefreshMails re-fetches inbox mail from Gmail and updates the cache. No-op when
@@ -191,6 +275,55 @@ func cachePath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "cache.db"), nil
+}
+
+// persistState records which account is connected so the session can be restored
+// on the next launch (the token itself stays in the keyring).
+type persistState struct {
+	Account string `json:"account"`
+}
+
+func statePath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Join(dir, "cmail")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "state.json"), nil
+}
+
+func saveState(email string) error {
+	p, err := statePath()
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(persistState{Account: email})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, b, 0o600)
+}
+
+func loadState() (string, error) {
+	p, err := statePath()
+	if err != nil {
+		return "", err
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+		return "", err
+	}
+	var st persistState
+	if err := json.Unmarshal(b, &st); err != nil {
+		return "", err
+	}
+	return st.Account, nil
 }
 
 func openURL(target string) error {

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { mail } from '../wailsjs/go/models';
-import { fetchAccounts, fetchCategories, fetchMails, fetchRules } from './lib/api';
+import {
+  fetchAccounts,
+  fetchCategories,
+  fetchMails,
+  fetchRules,
+  connectGmail,
+  disconnectGmail,
+  sendReply,
+  onMailsUpdated,
+  isApp,
+} from './lib/api';
 import { catBy } from './lib/categories';
 import { metaPressed, MOD, ENTER } from './lib/platform';
 import { useTweaks } from './hooks/useTweaks';
@@ -40,20 +50,31 @@ function App() {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [toast, setToast] = useState<Toast | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   const gPending = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Load data from the Go MailService.
-  useEffect(() => {
-    void fetchMails().then((m) => {
-      setAllMails(m);
-      if (m.length) setSelId((cur) => cur || m[0].id);
-    });
-    void fetchCategories().then(setCats);
-    void fetchAccounts().then(setAccounts);
-    void fetchRules().then(setRules);
+  // Load all data from the Go MailService.
+  const loadData = useCallback(async () => {
+    const [m, c, a, r] = await Promise.all([
+      fetchMails(),
+      fetchCategories(),
+      fetchAccounts(),
+      fetchRules(),
+    ]);
+    setAllMails(m);
+    setCats(c);
+    setAccounts(a);
+    setRules(r);
+    if (m.length) setSelId((cur) => cur || m[0].id);
   }, []);
+
+  useEffect(() => {
+    void loadData();
+    // Re-load when the backend signals a background sync / connection change.
+    return onMailsUpdated(() => void loadData());
+  }, [loadData]);
 
   const working = useMemo(
     () =>
@@ -111,6 +132,29 @@ function App() {
     setRules((rs) => rs.map((r, j) => (j === i ? mail.Rule.createFrom({ ...r, on: !r.on }) : r)));
   }, []);
 
+  const onConnect = useCallback(async () => {
+    if (!isApp()) {
+      flash('Gmail kräver desktop-appen', '⚠');
+      return;
+    }
+    setConnecting(true);
+    try {
+      await connectGmail();
+      await loadData();
+      flash('konto anslutet', '✓');
+    } catch {
+      flash('anslutning misslyckades', '⚠');
+    } finally {
+      setConnecting(false);
+    }
+  }, [flash, loadData]);
+
+  const onDisconnect = useCallback(async () => {
+    await disconnectGmail();
+    await loadData();
+    flash('konto frånkopplat', '✓');
+  }, [flash, loadData]);
+
   // ── actions ──
   const move = (delta: number) => {
     if (!filtered.length) return;
@@ -138,10 +182,28 @@ function App() {
     flash(`kategori → [${catBy(cats, nextKey).label}]`, 'c');
   };
   const approve = () => {
-    if (!sel?.draft || sent.has(sel.id)) return;
-    setSent((s) => new Set(s).add(sel.id));
-    setEditing(false);
-    flash(`skickat → ${sel.from}`, '↗');
+    if (!sel) return;
+    const m = sel;
+    const draft = m.draft;
+    if (!draft || sent.has(m.id)) return;
+    const subject = m.subject.startsWith('Re:') ? m.subject : `Re: ${m.subject}`;
+    const body = editing ? editValue : draft.lines.map((l) => l.text).join('\n');
+    const markSent = () => {
+      setSent((s) => new Set(s).add(m.id));
+      setEditing(false);
+    };
+    if (accounts.length > 0) {
+      // Connected: send for real — this is the explicit user approval.
+      void sendReply(m.fromAddr, subject, body)
+        .then(() => {
+          markSent();
+          flash(`skickat → ${m.from}`, '↗');
+        })
+        .catch(() => flash('kunde inte skicka', '⚠'));
+    } else {
+      markSent();
+      flash(`skickat → ${m.from}`, '↗');
+    }
   };
   const regenerate = () => {
     if (sel?.draft) {
@@ -503,6 +565,9 @@ function App() {
           rules={rules}
           cats={cats}
           accounts={accounts}
+          connecting={connecting}
+          onConnect={onConnect}
+          onDisconnect={onDisconnect}
           onToggleRule={toggleRule}
           onClose={() => setOverlay(null)}
           accent={tweaks.accent}
