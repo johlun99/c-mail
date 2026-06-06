@@ -45,11 +45,11 @@ Increment 1 — inbox shell ✅
 - [x] Keyboard + mouse parity for built surfaces; no `scrollIntoView`; platform-aware Mod key
 - [x] Swedish copy; tabular numerals; depth preserved; frontend test for shell
 
-Increment 2 — overlays + tweak UI (next)
-- [ ] Command palette (`Mod+K`) with grouped commands + filtering
-- [ ] Settings overlay (accounts, appearance, agent rules, categories, privacy)
-- [ ] Help/keymap overlay (`?`)
-- [ ] Wire accent/density/font/columns/bgl controls to `setTweak`
+Increment 2 — overlays + tweak UI ✅
+- [x] Command palette (`Mod+K`) with grouped commands + filtering + keyboard nav
+- [x] Settings overlay (TUI nav: konton, utseende, agent, kategorier, röst, sekretess, om)
+- [x] Help/keymap overlay (`?`)
+- [x] Wired accent/density/font/columns/bgl controls to `setTweak`; agent rules toggle
 - [ ] Live visual check via `wails dev` (needs webkit) against screenshots
 
 ## Phase 4 — Gmail integration  *(feat/gmail)*

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { mail } from '../wailsjs/go/models';
-import { fetchAccounts, fetchCategories, fetchMails } from './lib/api';
+import { fetchAccounts, fetchCategories, fetchMails, fetchRules } from './lib/api';
 import { catBy } from './lib/categories';
 import { metaPressed, MOD, ENTER } from './lib/platform';
 import { useTweaks } from './hooks/useTweaks';
@@ -9,18 +9,25 @@ import { Rail } from './components/Rail';
 import { MessageList } from './components/MessageList';
 import { ReadingPane } from './components/ReadingPane';
 import { StatusBar, type Mode } from './components/StatusBar';
+import { CommandPalette, type Command } from './components/CommandPalette';
+import { Help } from './components/Help';
+import { Settings } from './components/Settings';
 
 interface Toast {
   msg: string;
   pr: string;
 }
 
+type Overlay = 'palette' | 'settings' | 'help' | null;
+
 function App() {
-  const [tweaks] = useTweaks();
+  const [tweaks, setTweak] = useTweaks();
 
   const [allMails, setAllMails] = useState<mail.Mail[]>([]);
   const [cats, setCats] = useState<mail.Category[]>([]);
-  const [account, setAccount] = useState('');
+  const [accounts, setAccounts] = useState<mail.Account[]>([]);
+  const [rules, setRules] = useState<mail.Rule[]>([]);
+  const [overlay, setOverlay] = useState<Overlay>(null);
 
   const [filter, setFilter] = useState('alla');
   const [selId, setSelId] = useState('');
@@ -44,7 +51,8 @@ function App() {
       if (m.length) setSelId((cur) => cur || m[0].id);
     });
     void fetchCategories().then(setCats);
-    void fetchAccounts().then((a) => setAccount(a[0]?.email ?? ''));
+    void fetchAccounts().then(setAccounts);
+    void fetchRules().then(setRules);
   }, []);
 
   const working = useMemo(
@@ -99,7 +107,9 @@ function App() {
     toastTimer.current = setTimeout(() => setToast(null), 1900);
   }, []);
 
-  const soon = useCallback(() => flash('kommer i nästa steg', '…'), [flash]);
+  const toggleRule = useCallback((i: number) => {
+    setRules((rs) => rs.map((r, j) => (j === i ? mail.Rule.createFrom({ ...r, on: !r.on }) : r)));
+  }, []);
 
   // ── actions ──
   const move = (delta: number) => {
@@ -151,13 +161,164 @@ function App() {
     else flash('inget utkast — agenten skapar ett…', 'agent >');
   };
 
+  // ── command palette commands ──
+  const commands = useMemo<Command[]>(() => {
+    const close = () => setOverlay(null);
+    return [
+      {
+        id: 'settings',
+        name: 'Öppna inställningar (agentregler)',
+        group: 'navigera',
+        ic: '⚙',
+        kbd: ',',
+        run: () => setOverlay('settings'),
+      },
+      {
+        id: 'help',
+        name: 'Visa kortkommandon',
+        group: 'navigera',
+        ic: '?',
+        kbd: '?',
+        run: () => setOverlay('help'),
+      },
+      {
+        id: 'search',
+        name: 'Sök i inkorgen',
+        group: 'navigera',
+        ic: '/',
+        kbd: '/',
+        run: () => {
+          close();
+          setMode('search');
+        },
+      },
+      ...cats.map((c) => ({
+        id: 'cat-' + c.key,
+        name: 'Gå till: ' + c.label,
+        group: 'kategorier',
+        ic: '›',
+        run: () => {
+          setFilter(c.key);
+          close();
+        },
+      })),
+      {
+        id: 'cat-alla',
+        name: 'Gå till: alla',
+        group: 'kategorier',
+        ic: '›',
+        run: () => {
+          setFilter('alla');
+          close();
+        },
+      },
+      {
+        id: 'approve',
+        name: 'Godkänn & skicka utkast',
+        group: 'agent',
+        ic: '↗',
+        kbd: `${MOD} ${ENTER}`,
+        run: () => {
+          approve();
+          close();
+        },
+      },
+      {
+        id: 'edit',
+        name: 'Redigera utkast',
+        group: 'agent',
+        ic: '✎',
+        kbd: 'e',
+        run: () => {
+          openDraft();
+          close();
+        },
+      },
+      {
+        id: 'regen',
+        name: 'Generera om utkast',
+        group: 'agent',
+        ic: '↻',
+        kbd: 'r',
+        run: () => {
+          regenerate();
+          close();
+        },
+      },
+      {
+        id: 'recat',
+        name: 'Ändra kategori på valt mail',
+        group: 'agent',
+        ic: '⊟',
+        kbd: 'c',
+        run: () => {
+          recategorize();
+          close();
+        },
+      },
+      {
+        id: 'archive',
+        name: 'Arkivera valt mail',
+        group: 'åtgärder',
+        ic: 'e',
+        kbd: 'a',
+        run: () => {
+          archive();
+          close();
+        },
+      },
+      {
+        id: 'acc-gron',
+        name: 'Tema: grön accent',
+        group: 'utseende',
+        ic: '●',
+        run: () => {
+          setTweak('accent', '#7dd3a8');
+          close();
+        },
+      },
+      {
+        id: 'acc-bla',
+        name: 'Tema: blå accent',
+        group: 'utseende',
+        ic: '●',
+        run: () => {
+          setTweak('accent', '#6aa3f5');
+          close();
+        },
+      },
+      {
+        id: 'layout',
+        name: 'Växla 2/3 kolumner',
+        group: 'utseende',
+        ic: '▦',
+        run: () => {
+          setTweak('layout', tweaks.layout === '3 kol' ? '2 kol' : '3 kol');
+          close();
+        },
+      },
+      {
+        id: 'font',
+        name: 'Växla mono/sans',
+        group: 'utseende',
+        ic: 'Aa',
+        run: () => {
+          setTweak('font', tweaks.font === 'mono' ? 'sans' : 'mono');
+          close();
+        },
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cats, sel, selIdx, filtered, tweaks.layout, tweaks.font]);
+
   // ── global keymap ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (overlay) return; // overlays own their keys
       const meta = metaPressed(e);
       if (meta && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
-        soon();
+        setOverlay('palette');
         return;
       }
       if (meta && e.key === 'Enter') {
@@ -248,11 +409,11 @@ function App() {
           break;
         case '?':
           e.preventDefault();
-          soon();
+          setOverlay('help');
           break;
         case ',':
           e.preventDefault();
-          soon();
+          setOverlay('settings');
           break;
         case 'Escape':
           setFilter('alla');
@@ -279,15 +440,15 @@ function App() {
     <div className={'app' + (tweaks.layout === '2 kol' ? ' cols-2' : '')}>
       <TopBar
         filterLabel={filterLabel}
-        account={account}
+        account={accounts[0]?.email ?? ''}
         onHome={() => setFilter('alla')}
         onSearch={() => {
           setQuery('');
           setMode('search');
         }}
-        onPalette={soon}
-        onSettings={soon}
-        onHelp={soon}
+        onPalette={() => setOverlay('palette')}
+        onSettings={() => setOverlay('settings')}
+        onHelp={() => setOverlay('help')}
       />
       <div className="body">
         <Rail
@@ -295,8 +456,8 @@ function App() {
           counts={counts}
           current={filter}
           onPick={setFilter}
-          onHelp={soon}
-          onPalette={soon}
+          onHelp={() => setOverlay('help')}
+          onPalette={() => setOverlay('palette')}
         />
         <MessageList
           mails={filtered}
@@ -329,6 +490,30 @@ function App() {
         hint={hint}
         agentMsg={`agent: sorterade ${counts.alla} · ${pendingDrafts} utkast`}
       />
+
+      {overlay === 'palette' && (
+        <CommandPalette
+          commands={commands}
+          onClose={() => setOverlay(null)}
+          onRun={(c) => c.run()}
+        />
+      )}
+      {overlay === 'settings' && (
+        <Settings
+          rules={rules}
+          cats={cats}
+          accounts={accounts}
+          onToggleRule={toggleRule}
+          onClose={() => setOverlay(null)}
+          accent={tweaks.accent}
+          font={tweaks.font}
+          density={tweaks.density}
+          layout={tweaks.layout}
+          bgl={tweaks.bgl}
+          setTweak={setTweak}
+        />
+      )}
+      {overlay === 'help' && <Help onClose={() => setOverlay(null)} />}
 
       {toast && (
         <div className="toast">
