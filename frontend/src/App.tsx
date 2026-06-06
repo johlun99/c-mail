@@ -466,7 +466,7 @@ function App() {
           break;
         case 'r':
           e.preventDefault();
-          openDraft();
+          regenerate();
           break;
         case 'e':
           e.preventDefault();
@@ -502,9 +502,14 @@ function App() {
           setFilter('alla');
           break;
         default:
-          if (/^[1-6]$/.test(e.key) && cats.length >= +e.key) {
-            e.preventDefault();
-            setFilter(cats[+e.key - 1].key);
+          // 1 = alla, 2..N = categories — matches the rail's top-to-bottom order.
+          if (/^[1-9]$/.test(e.key)) {
+            const views = ['alla', ...cats.map((c) => c.key)];
+            const idx = +e.key - 1;
+            if (idx < views.length) {
+              e.preventDefault();
+              setFilter(views[idx]);
+            }
           }
       }
     };

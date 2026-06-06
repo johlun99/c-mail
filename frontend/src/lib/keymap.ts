@@ -7,7 +7,7 @@ export const KEYMAP: [string, [string, string][]][] = [
     [
       ['j / k', 'nästa / föregående mail'],
       ['g g / G', 'till toppen / botten'],
-      ['1–6', 'hoppa till kategori'],
+      ['1–7', 'alla + hoppa till kategori'],
       [`${ENTER} / l`, 'öppna / fokusera'],
       ['h / esc', 'tillbaka / stäng'],
     ],
