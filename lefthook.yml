@@ -1,0 +1,26 @@
+# Pre-commit quality gates. Install once with: lefthook install (or `make install-hooks`).
+pre-commit:
+  parallel: true
+  commands:
+    go-lint:
+      glob: "*.go"
+      run: golangci-lint run
+    go-test:
+      glob: "*.go"
+      run: go test $(go list ./... | grep -v /frontend/)
+    frontend-lint:
+      root: frontend/
+      glob: "*.{ts,tsx}"
+      run: npm run lint
+    frontend-format:
+      root: frontend/
+      glob: "*.{ts,tsx,css,json,html}"
+      run: npm run format:check
+    frontend-typecheck:
+      root: frontend/
+      glob: "*.{ts,tsx}"
+      run: npm run typecheck
+    frontend-test:
+      root: frontend/
+      glob: "*.{ts,tsx}"
+      run: npm run test

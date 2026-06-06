@@ -17,13 +17,14 @@ every PR/phase. Full rationale lives in the approved plan.
 - [x] Sync with existing remote commit, commit, push to master
 
 ## Phase 1 — Wails scaffold + tooling + CI  *(feat/scaffold → PR)*
-- [ ] `wails init -n cmail -t react-ts`
-- [ ] Go tooling: golangci-lint, gofmt/goimports, `go test`
-- [ ] Frontend tooling: ESLint, Prettier, `tsc --noEmit`, Vitest
-- [ ] lefthook pre-commit (runs lint + test for both sides)
-- [ ] Makefile / npm scripts unifying `lint`, `test`, `build`
-- [ ] GitHub Actions CI on PR (lint + test + smoke build)
-- [ ] Verify CI runs green on the PR; pre-commit blocks a broken commit
+- [x] `wails init -n cmail -t react-ts` (moved into repo root)
+- [x] Go tooling: golangci-lint (v2), gofmt/goimports, `go test`
+- [x] Frontend tooling: ESLint 9, Prettier 3, `tsc --noEmit`, Vitest 2 (modernized: Vite 6, TS 5)
+- [x] lefthook pre-commit (runs lint + test for both sides)
+- [x] Makefile unifying `lint`, `test`, `build`, `dev`, `fmt`, `install-hooks`
+- [x] GitHub Actions CI on PR (frontend + go + wails smoke build)
+- [x] Local verification: make lint + make test green; frontend + go build pass; pre-commit blocks broken code
+- [ ] Verify CI runs green on the PR
 - [ ] `gh auth login` + (optional) branch protection on master
 
 ## Phase 2 — Domain model + mock data  *(feat/mock-data)*

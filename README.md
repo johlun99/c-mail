@@ -27,13 +27,28 @@ browser sandbox can't.
 
 ## Development
 
-Requires **Go**, **Node.js**, and the **[Wails CLI](https://wails.io/docs/gettingstarted/installation)**.
+Requires **Go**, **Node.js**, the **[Wails CLI](https://wails.io/docs/gettingstarted/installation)**,
+**golangci-lint**, and **lefthook**. On Linux you also need `gtk3` + `webkit2gtk-4.1`.
+
+Tools installed via `go install` (wails, lefthook) land in `$(go env GOPATH)/bin`
+(usually `~/go/bin`) — **make sure that's on your `PATH`**, otherwise the git
+pre-commit hook can't find them.
+
+First-time setup:
+
+```bash
+cd frontend && npm install && cd ..   # frontend deps
+make install-hooks                    # enable pre-commit lint+test hook
+```
+
+Everyday commands:
 
 ```bash
 wails dev      # run the app in development with hot reload
 wails build    # produce a distributable binary
 make lint      # run all linters (Go + frontend)
 make test      # run all tests (Go + frontend)
+make fmt       # auto-format Go + frontend
 ```
 
 ## Contributing workflow
