@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 )
 
 //go:embed all:frontend/dist
@@ -29,6 +30,12 @@ func main() {
 		Bind: []interface{}{
 			app,
 			svc,
+		},
+		// Linux/Wayland: a stable program name → stable window app_id ("cmail"),
+		// so tiling WMs like Hyprland identify and tile the window consistently
+		// (without it, `wails dev`'s temp binary yields an unstable app_id).
+		Linux: &linux.Options{
+			ProgramName: "cmail",
 		},
 	})
 
