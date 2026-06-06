@@ -82,6 +82,16 @@ Increment 4b — wiring + sync ✅ (live-test pending creds)
 
 ---
 
+## Known issues & backlog (found in live testing)
+- [ ] **Window doesn't fill its tile under Hyprland** — window is resizable (no fixed/min size in `main.go`), so it's likely floated by the WM and/or lacks a stable app-id. Fix: set `Linux.ProgramName` for a stable `class`, verify with `hyprctl clients`, add a tiling windowrule if needed. Verify on Hyprland.
+- [ ] **Functional settings** — several settings panes are UI-only stubs needing backend persistence + wiring:
+  - [ ] "Ny kategori" (add custom category) does nothing
+  - [ ] "Signatur → redigera" does nothing
+  - [ ] Default tone stepper, agent-rule toggles, per-category auto-draft, privacy toggles — change in UI but aren't persisted or acted on
+  - Plan: small config store (file/SQLite) + feed signature/tone/categories/rules into the agent.
+- [ ] Deeper tests: `httptest` for the Gmail client; App keymap/interaction tests; ReadingPane diff test.
+- [ ] Productization: release build/packaging (Linux + macOS), app icon; thread view; remove leftover `Greet` template code; loading/error-state polish.
+
 ## Open questions (non-blocking)
 - [ ] Confirm exact LICENSE copyright name
 - [ ] Laptop RAM/GPU → Ollama model size (Phase 5)
