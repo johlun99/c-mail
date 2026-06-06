@@ -27,12 +27,13 @@ every PR/phase. Full rationale lives in the approved plan.
 - [ ] Verify CI runs green on the PR
 - [ ] `gh auth login` + (optional) branch protection on master
 
-## Phase 2 — Domain model + mock data  *(feat/mock-data)*
-- [ ] Go domain types (Mail, Category, AgentAnalysis, Draft, Account)
-- [ ] Configurable/extensible category taxonomy
-- [ ] Mock provider behind a `MailStore` interface (port prototype dataset)
-- [ ] Expose via Wails bindings; mirrored TS types in frontend
-- [ ] Tests on the provider
+## Phase 2 — Domain model + mock data  *(feat/mock-data)*  ✅
+- [x] Go domain types in `internal/mail` (Mail, Category, AgentAnalysis, Fact, Draft, DraftLine, Activity, Rule, Account)
+- [x] Default category taxonomy (extension via settings UI comes in Phase 3)
+- [x] Mock provider behind a `Store` interface (full prototype dataset ported, returns copies)
+- [x] Exposed via Wails `MailService` bindings; TS models generated (`wails generate module`)
+- [x] Go tests on the store + frontend test guarding the TS↔Go contract
+- [ ] Live fetch in UI deferred to Phase 3 (needs `wails dev` + webkit)
 
 ## Phase 3 — UI matching the design  *(feat/ui, maybe split)*
 - [ ] Port design tokens (OKLCH ramp, `--bgl`, ambient depth)
