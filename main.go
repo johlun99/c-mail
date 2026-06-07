@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"os"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -13,6 +15,14 @@ import (
 var assets embed.FS
 
 func main() {
+	// WebKitGTK's native Wayland surface mishandles compositor-driven resizes
+	// under tiling WMs (e.g. Hyprland: the window renders full size, then shrinks
+	// on the next repaint). Running via XWayland avoids it. Set GDK_BACKEND
+	// yourself to override.
+	if runtime.GOOS == "linux" && os.Getenv("GDK_BACKEND") == "" {
+		_ = os.Setenv("GDK_BACKEND", "x11")
+	}
+
 	// Create an instance of the app structure
 	svc := NewMailService()
 	app := NewApp(svc)
